@@ -32,10 +32,22 @@ def init(
     product_name: str = typer.Argument(..., help="Name of the generated backend project."),
     output: Path | None = typer.Option(None, "--output", "-o", help="Parent output directory."),
     force: bool = typer.Option(False, "--force", help="Overwrite generated files when safe checks fail."),
+    include_mongodb: bool | None = typer.Option(
+        None,
+        "--include-mongodb/--no-include-mongodb",
+        help="Include a local MongoDB service with a named volume in docker-compose.yml.",
+    ),
 ) -> None:
     """Create a new RIFT backend project."""
+    if include_mongodb is None:
+        include_mongodb = typer.confirm("Include local MongoDB in docker-compose.yml?", default=True)
     try:
-        result = init_project(product_name=product_name, parent=output or Path.cwd(), force=force)
+        result = init_project(
+            product_name=product_name,
+            parent=output or Path.cwd(),
+            force=force,
+            include_mongodb=include_mongodb,
+        )
     except Exception as exc:
         _handle_error(exc)
     typer.echo(f"Created RIFT project at {result.target_dir}")

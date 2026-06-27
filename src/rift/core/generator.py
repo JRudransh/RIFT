@@ -30,7 +30,7 @@ class InitResult:
     target_dir: Path
 
 
-def init_project(product_name: str, parent: Path, force: bool = False) -> InitResult:
+def init_project(product_name: str, parent: Path, force: bool = False, include_mongodb: bool = False) -> InitResult:
     package_name = snake_case(product_name)
     target = parent / package_name
     if target.exists() and any(target.iterdir()) and not force:
@@ -43,6 +43,7 @@ def init_project(product_name: str, parent: Path, force: bool = False) -> InitRe
             "package_name": package_name,
             "generator_version": __version__,
             "last_generated_at": None,
+            "docker": {"include_mongodb": include_mongodb},
             "safety": {"require_clean_git": True},
         },
     )
@@ -83,9 +84,11 @@ def generate_project(project: Path, dry_run: bool = False, force: bool = False) 
     package_name = generator.get("package_name")
     if not package_name:
         raise RuntimeError("Invalid RIFT project: .template/generator.json is missing package_name.")
+    docker = generator.get("docker", {})
     context = {
         "project_name": generator.get("project_name", project.name),
         "package_name": package_name,
+        "include_mongodb": bool(docker.get("include_mongodb", False)),
         "objects": objects,
         "permissions": permissions_doc.get("permissions", []),
         "roles": roles_doc.get("roles", []),
@@ -100,6 +103,7 @@ def generate_project(project: Path, dry_run: bool = False, force: bool = False) 
         renderer.write(files)
         generator["last_generated_at"] = context["generated_at"]
         generator["generator_version"] = __version__
+        generator.setdefault("docker", {})["include_mongodb"] = context["include_mongodb"]
         write_json(generator_path(project), generator)
         write_removal_guide(project)
     return RenderResult(files=files, changed=changed)

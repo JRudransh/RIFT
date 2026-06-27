@@ -11,3 +11,20 @@ services:
     env_file:
       - .env.example
       - .env
+{% if include_mongodb %}    environment:
+      MONGO_URI: mongodb://mongo:27017
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:7
+    container_name: {{ package_name }}-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
+{% endif %}
