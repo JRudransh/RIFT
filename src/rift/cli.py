@@ -48,9 +48,9 @@ def init(
             force=force,
             include_mongodb=include_mongodb,
         )
+        typer.echo(f"Created RIFT project at {result.target_dir}")
     except Exception as exc:
         _handle_error(exc)
-    typer.echo(f"Created RIFT project at {result.target_dir}")
 
 
 @object_app.command("add")
@@ -62,9 +62,9 @@ def object_add(
         ensure_initialized_project(project)
         definition = prompt_object_definition()
         apply_object_file(project, definition)
+        typer.echo(f"Saved object definition: {definition['name']}")
     except Exception as exc:
         _handle_error(exc)
-    typer.echo(f"Saved object definition: {definition['name']}")
 
 
 @object_app.command("apply")
@@ -75,9 +75,9 @@ def object_apply(
     """Apply object definitions from JSON."""
     try:
         count = apply_object_file(project, json_file)
+        typer.echo(f"Applied {count} object definition(s)")
     except Exception as exc:
         _handle_error(exc)
-    typer.echo(f"Applied {count} object definition(s)")
 
 
 @app.command()
@@ -89,10 +89,10 @@ def generate(
     """Generate backend files from source-of-truth JSON."""
     try:
         result = generate_project(project, dry_run=dry_run, force=force)
+        prefix = "Would write" if dry_run else "Wrote"
+        typer.echo(f"{prefix} {len(result.files)} file(s)")
     except Exception as exc:
         _handle_error(exc)
-    prefix = "Would write" if dry_run else "Wrote"
-    typer.echo(f"{prefix} {len(result.files)} file(s)")
 
 
 @app.command()
@@ -102,13 +102,13 @@ def diff(
     """Preview generated file changes."""
     try:
         result = generate_project(project, dry_run=True, force=True)
+        if not result.changed:
+            typer.echo("No generated changes.")
+            return
+        for item in result.changed:
+            typer.echo(item)
     except Exception as exc:
         _handle_error(exc)
-    if not result.changed:
-        typer.echo("No generated changes.")
-        return
-    for item in result.changed:
-        typer.echo(item)
 
 
 @app.command()
@@ -130,9 +130,9 @@ def removal_guide(
     """Write the manual generated-object removal guide."""
     try:
         path = write_removal_guide(project)
+        typer.echo(f"Wrote {path}")
     except Exception as exc:
         _handle_error(exc)
-    typer.echo(f"Wrote {path}")
 
 
 if __name__ == "__main__":

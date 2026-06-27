@@ -14,4 +14,4 @@ RUN uv sync --no-dev
 
 EXPOSE 8000
 
-CMD ["uv", "run", "fastapi", "run", "{{ package_name }}/api/main.py", "--proxy-headers", "--port", "8000"]
+CMD ["uv", "run", "fastapi", "run", "--proxy-headers", "--port", "8000"]
