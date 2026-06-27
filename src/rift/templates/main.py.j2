@@ -6,7 +6,10 @@ from starlette.middleware.cors import CORSMiddleware
 
 from {{ package_name }}.api.base.operations import create_base_indexes
 from {{ package_name }}.api.base.operations.seed_ops import seed_first_admin
-from {{ package_name }}.api.base.routes import auth, my, org, user{% for obj in objects %}, {{ obj.names.snake }}{% endfor %}
+from {{ package_name }}.api.base.routes import auth, my, org, user
+
+{% for obj in objects %}, {{ obj.names.snake }}{% endfor %}
+
 from {{ package_name }}.api.config import Config
 from {{ package_name }}.api.consts import DESCRIPTION, TITLE, VERSION
 from {{ package_name }}.api.database import Mongo
