@@ -1,0 +1,13 @@
+services:
+  {{ package_name }}_api:
+    container_name: {{ package_name }}-api-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "9000:8000"
+    volumes:
+      - ./:/code
+    env_file:
+      - .env.example
+      - .env
