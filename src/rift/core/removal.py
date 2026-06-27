@@ -3,10 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from rift.core.models import load_objects
-from rift.core.storage import objects_path, read_json
+from rift.core.storage import ensure_initialized_project, objects_path, read_json
 
 
 def removal_markdown(project: Path) -> str:
+    ensure_initialized_project(project)
     objects = load_objects(read_json(objects_path(project), {"objects": []}))
     lines = [
         "# RIFT Manual Removal Guide",
@@ -32,6 +33,7 @@ def removal_markdown(project: Path) -> str:
 
 
 def write_removal_guide(project: Path) -> Path:
+    ensure_initialized_project(project)
     path = project / ".template" / "removal.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(removal_markdown(project), encoding="utf-8")

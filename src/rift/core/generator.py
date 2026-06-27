@@ -14,7 +14,15 @@ from rift.core.permissions import generate_permissions
 from rift.core.renderer import RenderResult, TemplateRenderer
 from rift.core.removal import write_removal_guide
 from rift.core.roles import generate_roles
-from rift.core.storage import generator_path, objects_path, permissions_path, read_json, roles_path, write_json
+from rift.core.storage import (
+    ensure_initialized_project,
+    generator_path,
+    objects_path,
+    permissions_path,
+    read_json,
+    roles_path,
+    write_json,
+)
 
 
 @dataclass
@@ -48,6 +56,7 @@ def init_project(product_name: str, parent: Path, force: bool = False) -> InitRe
 
 
 def apply_object_file(project: Path, source: Path | dict[str, Any]) -> int:
+    ensure_initialized_project(project)
     current = read_json(objects_path(project), {"objects": []})
     existing = {item["name"]: item for item in current.get("objects", [])}
     if isinstance(source, dict):
@@ -64,13 +73,16 @@ def apply_object_file(project: Path, source: Path | dict[str, Any]) -> int:
 
 
 def generate_project(project: Path, dry_run: bool = False, force: bool = False) -> RenderResult:
+    ensure_initialized_project(project)
     if not dry_run and not force and git_dirty(project):
         raise RuntimeError("Refusing to generate with uncommitted changes. Use --force to override.")
     objects = load_objects(read_json(objects_path(project), {"objects": []}))
     permissions_doc = generate_permissions(objects)
     roles_doc = generate_roles(permissions_doc)
     generator = read_json(generator_path(project), {})
-    package_name = generator.get("package_name") or project.name
+    package_name = generator.get("package_name")
+    if not package_name:
+        raise RuntimeError("Invalid RIFT project: .template/generator.json is missing package_name.")
     context = {
         "project_name": generator.get("project_name", project.name),
         "package_name": package_name,
@@ -94,6 +106,7 @@ def generate_project(project: Path, dry_run: bool = False, force: bool = False) 
 
 
 def _refresh_catalogs(project: Path) -> None:
+    ensure_initialized_project(project)
     objects = load_objects(read_json(objects_path(project), {"objects": []}))
     permissions = generate_permissions(objects)
     write_json(permissions_path(project), permissions)

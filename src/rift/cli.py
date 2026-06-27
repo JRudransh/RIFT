@@ -5,13 +5,26 @@ from pathlib import Path
 import typer
 
 from rift.core.doctor import run_doctor
+from rift.core.errors import ProjectNotInitializedError
 from rift.core.generator import apply_object_file, generate_project, init_project
 from rift.core.interactive import prompt_object_definition
 from rift.core.removal import write_removal_guide
+from rift.core.storage import ensure_initialized_project
 
 app = typer.Typer(help="RIFT backend generator.")
 object_app = typer.Typer(help="Manage source-of-truth object definitions.")
 app.add_typer(object_app, name="object")
+
+
+def _fail(message: str) -> None:
+    typer.echo(message, err=True)
+    raise typer.Exit(1)
+
+
+def _handle_error(exc: Exception) -> None:
+    if isinstance(exc, ProjectNotInitializedError):
+        _fail(str(exc))
+    _fail(f"ERROR {exc}")
 
 
 @app.command()
@@ -21,7 +34,10 @@ def init(
     force: bool = typer.Option(False, "--force", help="Overwrite generated files when safe checks fail."),
 ) -> None:
     """Create a new RIFT backend project."""
-    result = init_project(product_name=product_name, parent=output or Path.cwd(), force=force)
+    try:
+        result = init_project(product_name=product_name, parent=output or Path.cwd(), force=force)
+    except Exception as exc:
+        _handle_error(exc)
     typer.echo(f"Created RIFT project at {result.target_dir}")
 
 
@@ -30,8 +46,12 @@ def object_add(
     project: Path = typer.Option(Path.cwd(), "--project", "-p", help="Generated project root."),
 ) -> None:
     """Interactively add or replace an object definition."""
-    definition = prompt_object_definition()
-    apply_object_file(project, definition)
+    try:
+        ensure_initialized_project(project)
+        definition = prompt_object_definition()
+        apply_object_file(project, definition)
+    except Exception as exc:
+        _handle_error(exc)
     typer.echo(f"Saved object definition: {definition['name']}")
 
 
@@ -41,7 +61,10 @@ def object_apply(
     project: Path = typer.Option(Path.cwd(), "--project", "-p", help="Generated project root."),
 ) -> None:
     """Apply object definitions from JSON."""
-    count = apply_object_file(project, json_file)
+    try:
+        count = apply_object_file(project, json_file)
+    except Exception as exc:
+        _handle_error(exc)
     typer.echo(f"Applied {count} object definition(s)")
 
 
@@ -52,7 +75,10 @@ def generate(
     force: bool = typer.Option(False, "--force", help="Generate even when the git worktree is dirty."),
 ) -> None:
     """Generate backend files from source-of-truth JSON."""
-    result = generate_project(project, dry_run=dry_run, force=force)
+    try:
+        result = generate_project(project, dry_run=dry_run, force=force)
+    except Exception as exc:
+        _handle_error(exc)
     prefix = "Would write" if dry_run else "Wrote"
     typer.echo(f"{prefix} {len(result.files)} file(s)")
 
@@ -62,7 +88,10 @@ def diff(
     project: Path = typer.Option(Path.cwd(), "--project", "-p", help="Generated project root."),
 ) -> None:
     """Preview generated file changes."""
-    result = generate_project(project, dry_run=True, force=True)
+    try:
+        result = generate_project(project, dry_run=True, force=True)
+    except Exception as exc:
+        _handle_error(exc)
     if not result.changed:
         typer.echo("No generated changes.")
         return
@@ -87,7 +116,10 @@ def removal_guide(
     project: Path = typer.Option(Path.cwd(), "--project", "-p", help="Generated project root."),
 ) -> None:
     """Write the manual generated-object removal guide."""
-    path = write_removal_guide(project)
+    try:
+        path = write_removal_guide(project)
+    except Exception as exc:
+        _handle_error(exc)
     typer.echo(f"Wrote {path}")
 
 

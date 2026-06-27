@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from rift.core.models import load_objects
-from rift.core.storage import generator_path, objects_path, permissions_path, read_json, roles_path
+from rift.core.storage import generator_path, is_initialized_project, objects_path, permissions_path, read_json, roles_path
 
 
 @dataclass
@@ -15,6 +15,15 @@ class DoctorReport:
 
 
 def run_doctor(project: Path) -> DoctorReport:
+    if not is_initialized_project(project):
+        return DoctorReport(
+            ok=False,
+            messages=[
+                f"RIFT project is not initialized at {project}.",
+                "Run `rift init <project_name>` first, or pass `--project` pointing to an initialized RIFT project.",
+            ],
+        )
+
     messages: list[str] = []
     errors = 0
 

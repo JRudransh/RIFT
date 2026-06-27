@@ -1,7 +1,10 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from rift.core.doctor import run_doctor
+from rift.core.errors import ProjectNotInitializedError
 from rift.core.generator import apply_object_file, generate_project, init_project
 
 
@@ -21,6 +24,20 @@ def test_init_generates_project_structure(tmp_path: Path):
     assert "motor" not in database.lower()
     assert "uv sync --no-dev" in dockerfile
     assert '"pymongo>=4.11.0"' in backend_pyproject
+
+
+def test_uninitialized_project_reports_initialize_message(tmp_path: Path):
+    report = run_doctor(tmp_path)
+    assert not report.ok
+    assert "not initialized" in "\n".join(report.messages)
+    assert "rift init <project_name>" in "\n".join(report.messages)
+
+
+def test_generate_refuses_uninitialized_project_without_writing(tmp_path: Path):
+    with pytest.raises(ProjectNotInitializedError):
+        generate_project(tmp_path)
+    assert not (tmp_path / ".template").exists()
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_apply_object_generates_object_files_and_catalogs(tmp_path: Path):
