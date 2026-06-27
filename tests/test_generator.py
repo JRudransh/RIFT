@@ -20,10 +20,35 @@ def test_init_generates_project_structure(tmp_path: Path):
     database = (root / "hotel_admin" / "api" / "database.py").read_text(encoding="utf-8")
     dockerfile = (root / "Dockerfile").read_text(encoding="utf-8")
     backend_pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    compose = (root / "docker-compose.yml").read_text(encoding="utf-8")
     assert "from pymongo import AsyncMongoClient" in database
     assert "motor" not in database.lower()
     assert "uv sync --no-dev" in dockerfile
     assert '"pymongo>=4.11.0"' in backend_pyproject
+    assert "image: mongo" not in compose
+
+
+def test_init_can_include_local_mongodb_compose_service(tmp_path: Path):
+    root = init_project("Hotel Admin", tmp_path, force=False, include_mongodb=True).target_dir
+    compose = (root / "docker-compose.yml").read_text(encoding="utf-8")
+    generator = json.loads((root / ".template" / "generator.json").read_text(encoding="utf-8"))
+    assert generator["docker"]["include_mongodb"] is True
+    assert "image: mongo:7" in compose
+    assert '"27017:27017"' in compose
+    assert "mongo_data:/data/db" in compose
+    assert "MONGO_URI: mongodb://mongo:27017" in compose
+    assert "depends_on:" in compose
+    assert "mongo_data:" in compose
+
+
+def test_init_without_local_mongodb_omits_compose_service(tmp_path: Path):
+    root = init_project("Hotel Admin", tmp_path, force=False, include_mongodb=False).target_dir
+    compose = (root / "docker-compose.yml").read_text(encoding="utf-8")
+    generator = json.loads((root / ".template" / "generator.json").read_text(encoding="utf-8"))
+    assert generator["docker"]["include_mongodb"] is False
+    assert "image: mongo" not in compose
+    assert "mongo_data" not in compose
+    assert "mongodb://mongo:27017" not in compose
 
 
 def test_uninitialized_project_reports_initialize_message(tmp_path: Path):
