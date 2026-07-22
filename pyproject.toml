@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "rift"
+name = "rift-backend"
 version = "0.1.0"
 description = "Strict JSON-driven FastAPI backend generator."
 readme = "README.md"
@@ -12,21 +12,33 @@ dependencies = [
     "jinja2>=3.1.4",
     "typer>=0.12.5",
 ]
-keywords = ["fastapi", "generator", "template", "mongodb", "rbac"]
+keywords = ["fastapi", "generator", "template", "mongodb", "rbac", "multi-tenant"]
 classifiers = [
+    "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Code Generators",
 ]
 
 [project.optional-dependencies]
 dev = [
+    "build>=1.2.2",
     "pytest>=8.3.0",
+    "twine>=6.0.0",
 ]
 
 [project.scripts]
 rift = "rift.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/JRudransh/RIFT"
+Repository = "https://github.com/JRudransh/RIFT"
+Issues = "https://github.com/JRudransh/RIFT/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rift"]

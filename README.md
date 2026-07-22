@@ -1,166 +1,329 @@
 # RIFT
 
-**RIFT** is an opinionated FastAPI template framework for generating structured, multi-tenant backend projects from source-of-truth configuration files.
+RIFT is an opinionated FastAPI backend generator for building structured, multi-tenant MongoDB APIs from JSON source-of-truth files.
 
-RIFT is designed for developers who want a consistent backend foundation across projects without repeatedly writing the same boilerplate for configuration, database access, models, routes, operations, permissions, tenancy, and RBAC.
+RIFT is strict on purpose. It generates one consistent backend style with configuration, async PyMongo database access, auth scaffolding, tenancy, RBAC, generated models, operation classes, route modules, Docker support, and repeatable regeneration.
 
-It is intentionally strict. The goal is not to support every possible backend style. The goal is to support one strong backend style very well.
+Generated routes check permissions. Generated operations enforce tenancy and ownership.
 
----
+## Features
 
-## Overview
+- FastAPI backend project generation
+- Async PyMongo database access
+- `uv` based generated projects
+- Dockerfile and Docker Compose generation
+- Optional local MongoDB Compose service with a named volume
+- Root `main.py` app entrypoint plus packaged `<project>/api/main.py`
+- Source-of-truth JSON files under `.template/`
+- Object model, operation, and route generation
+- Object updates through repeated JSON apply + regenerate
+- Tenant-scoped filtering through `org_id`
+- Own versus any permission scopes
+- Separate action endpoints for workflow fields such as `status`
+- In-memory RBAC cache scaffold
+- First admin/system organization seeding from environment variables
+- Git-aware generation safety
+- Dry-run, diff, doctor, and manual removal guide commands
 
-RIFT generates FastAPI backend projects using a fixed architecture and a JSON-driven generation flow.
+## Package Name
 
-The core flow is:
+The PyPI package is intended to be published as `rift-backend` because `rift` is already used by another project on PyPI.
 
-**User input → Source-of-truth JSON → Generated backend code**
+The installed console command is still:
 
-Instead of directly generating code from one-time prompts, RIFT first stores structured project and object definitions in configuration files. The backend code is then generated or regenerated from those files.
-
-This makes the framework predictable, repeatable, and safer to maintain.
-
----
-
-## Core Idea
-
-Most backend projects need the same foundation:
-
-- Application configuration
-- Environment variable loading
-- MongoDB setup
-- API versioning
-- Models
-- Routes
-- Database operations
-- Auth dependencies
-- Multi-tenancy
-- Role-based access control
-- Permission checks
-- Tenant filtering
-- Object ownership checks
-- Route registration
-- Collection name management
-
-RIFT standardizes these decisions and generates the repetitive structure automatically.
-
-The developer defines the business objects and rules. RIFT generates the backend structure around them.
-
----
-
-## Design Philosophy
-
-RIFT follows a strict and opinionated design philosophy.
-
-### Fixed by the framework
-
-RIFT assumes the following decisions by default:
-
-- FastAPI as the backend framework
-- MongoDB as the database
-- Multi-tenancy enabled by default
-- RBAC enabled by default
-- One system organization
-- Global user identity
-- Tenant-specific memberships
-- Custom roles
-- Model-wise permissions
-- API versioning from `v1`
-- Environment-based configuration
-- JSON source-of-truth files
-- Deterministic code generation
-
-### Controlled by the developer
-
-The developer mainly defines:
-
-- Project name
-- Business objects
-- Object fields
-- Field types
-- Field validations
-- Object scope
-- Object ownership behavior
-- Custom object actions
-- Separate update methods
-- Permission behavior
-- Default role templates
-
----
-
-## Main Workflow
-
-RIFT follows a three-step workflow.
-
-### 1. Initialize Project
-
-The project initialization step creates the base backend structure, required folders, source-of-truth files, and the initial project baseline.
-
-It should also initialize Git and create the first commit so future generated changes can be reviewed safely.
-
-### 2. Define Objects
-
-The object definition step collects object details from the developer.
-
-This includes object name, fields, validations, schema behavior, ownership behavior, model validators, field validators, and custom actions.
-
-This step updates the source-of-truth configuration files only. It should not directly generate backend code.
-
-### 3. Generate Backend
-
-The generation step reads the source-of-truth configuration and generates or regenerates backend files.
-
-Generated code should be deterministic. If the configuration does not change, the generated output should not unexpectedly change.
-
----
-
-## Source of Truth
-
-RIFT should maintain separate source-of-truth files instead of one large configuration file.
-
-Suggested structure:
-
-```text
-.template/
-  objects.json
-  permissions.json
-  roles.json
-  generator.json
+```powershell
+rift
 ```
 
-### objects.json
+## Requirements
 
-Defines business objects, fields, validations, schema behavior, ownership behavior, custom actions, route behavior, and object scope.
+For using the generator:
 
-### permissions.json
+- Python 3.12+
+- `pipx` recommended for global CLI installation
 
-Defines the generated permission catalog for each object.
+For running generated projects:
 
-This file represents available permissions, not runtime assignments.
+- Python 3.12+
+- `uv`
+- MongoDB, either local/external or generated through Docker Compose
+- Docker and Docker Compose, if using generated containers
 
-### roles.json
+## Installation
 
-Defines default role templates and initial role-permission mappings.
+Install from PyPI after release:
 
-Runtime role assignment should still happen through the database.
+```powershell
+pipx install rift-backend
+```
 
-### generator.json
+Install directly from GitHub:
 
-Stores project metadata, generator version, last generated time, and generation safety settings.
+```powershell
+pipx install "git+https://github.com/JRudransh/RIFT.git"
+```
 
----
+Install locally while developing RIFT:
 
-## Suggested Generated Project Structure
+```powershell
+git clone https://github.com/JRudransh/RIFT.git
+cd RIFT
+pipx install --editable .
+```
 
-A generated RIFT project should follow a predictable structure:
+Or run from the repository without installing:
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m rift.cli --help
+```
+
+## Quick Start
+
+Create a generated backend project:
+
+```powershell
+rift init Hotel Admin
+```
+
+For scripts, avoid the interactive MongoDB prompt:
+
+```powershell
+rift init Hotel Admin --include-mongodb
+rift init Hotel Admin --no-include-mongodb
+```
+
+Move into the generated project:
+
+```powershell
+cd hotel_admin
+```
+
+Install generated project dependencies:
+
+```powershell
+uv sync
+```
+
+Create a `.env` file or use environment variables. The generated `.env.example` shows all required keys:
+
+```powershell
+DEV_MODE=true
+MONGO_URI=mongodb://localhost:27017
+BASE_DB_NAME=hotel_admin
+JWT_SECRET=change_me
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=change_me_admin_password
+ADMIN_NAME=Admin
+```
+
+Run the generated API locally:
+
+```powershell
+uv run uvicorn main:app --host 127.0.0.1 --port 8000
+```
+
+Open the docs:
 
 ```text
-product_name/
-  __init__.py
-  config.py
-  cols.py
-  db.py
+http://127.0.0.1:8000/
+```
+
+## Docker Usage
+
+If you initialized with MongoDB support:
+
+```powershell
+rift init Hotel Admin --include-mongodb
+cd hotel_admin
+docker compose up --build
+```
+
+The generated Compose file includes:
+
+- API service exposed on `9000:8000`
+- MongoDB service using `mongo:7`
+- MongoDB named volume `mongo_data:/data/db`
+- MongoDB host port `${MONGO_PORT:-27017}:27017`
+
+If port `27017` is already used locally, choose another host port:
+
+```powershell
+$env:MONGO_PORT = "28017"
+docker compose up --build
+```
+
+The API service talks to MongoDB inside Compose through:
+
+```text
+mongodb://mongo:27017
+```
+
+`.env` is optional in the generated Compose file. `.env.example` is always included.
+
+## CLI Commands
+
+### `rift init`
+
+Create a new generated backend project.
+
+```powershell
+rift init <project_name>
+```
+
+Options:
+
+```powershell
+rift init Hotel Admin --output C:\projects
+rift init Hotel Admin --force
+rift init Hotel Admin --include-mongodb
+rift init Hotel Admin --no-include-mongodb
+```
+
+What it does:
+
+- Creates a new project folder using a normalized snake_case package name
+- Writes `.template/` source files
+- Generates backend files
+- Generates Docker and `uv` project files
+- Initializes Git in the generated project when possible
+
+### `rift object add`
+
+Interactively add or replace one object definition in an initialized RIFT project.
+
+```powershell
+rift object add --project C:\projects\hotel_admin
+```
+
+This updates `.template/objects.json`. Run `rift generate` afterward to regenerate backend files.
+
+### `rift object apply`
+
+Apply object definitions from JSON.
+
+```powershell
+rift object apply objects.json --project C:\projects\hotel_admin
+```
+
+The JSON file can contain a single object:
+
+```json
+{
+  "name": "Room",
+  "description": "Hotel room inventory",
+  "scope": "tenant",
+  "fields": [
+    {"name": "number", "type": "string", "required": true},
+    {"name": "floor", "type": "integer", "required": true},
+    {"name": "nightly_rate", "type": "float", "required": true},
+    {"name": "available", "type": "boolean", "required": false},
+    {"name": "status", "type": "literal", "required": true, "separate_update": true}
+  ]
+}
+```
+
+Or multiple objects:
+
+```json
+{
+  "objects": [
+    {
+      "name": "Guest Profile",
+      "scope": "tenant",
+      "fields": [
+        {"name": "full_name", "type": "string", "required": true},
+        {"name": "email", "type": "string", "required": true},
+        {"name": "vip", "type": "boolean", "required": false}
+      ]
+    },
+    {
+      "name": "Booking",
+      "scope": "tenant",
+      "fields": [
+        {"name": "guest_id", "type": "string", "required": true},
+        {"name": "room_id", "type": "string", "required": true},
+        {"name": "check_in", "type": "datetime", "required": true},
+        {"name": "check_out", "type": "datetime", "required": true},
+        {"name": "total_amount", "type": "float", "required": true},
+        {"name": "status", "type": "literal", "required": true, "separate_update": true}
+      ]
+    }
+  ]
+}
+```
+
+Applying an object with the same normalized name replaces the existing source-of-truth definition. This is how existing generated object schemas are changed.
+
+### `rift generate`
+
+Generate backend files from `.template/*.json`.
+
+```powershell
+rift generate --project C:\projects\hotel_admin
+```
+
+Safety behavior:
+
+- Refuses to generate in an uninitialized folder
+- Refuses to overwrite a dirty Git worktree unless `--force` is used
+
+Options:
+
+```powershell
+rift generate --project C:\projects\hotel_admin --dry-run
+rift generate --project C:\projects\hotel_admin --force
+```
+
+### `rift diff`
+
+Preview generated changes without writing files.
+
+```powershell
+rift diff --project C:\projects\hotel_admin
+```
+
+### `rift doctor`
+
+Validate project health.
+
+```powershell
+rift doctor --project C:\projects\hotel_admin
+```
+
+Checks include:
+
+- Required `.template` files exist
+- Generator metadata is present
+- Permission key format is valid
+- Generated model, operation, and route files exist for configured objects
+- Tenant-scoped operation files contain tenancy and ownership markers
+
+If run outside an initialized RIFT project, it prints an initialize-first message instead of treating the folder as a broken project.
+
+### `rift removal-guide`
+
+Write the manual generated-object removal guide.
+
+```powershell
+rift removal-guide --project C:\projects\hotel_admin
+```
+
+RIFT does not automatically delete generated object files. The guide explains what to review manually when removing an object.
+
+## Generated Project Structure
+
+A generated project uses this layout:
+
+```text
+hotel_admin/
   main.py
+  pyproject.toml
+  uv.lock
+  Dockerfile
+  docker-compose.yml
+  .dockerignore
+  .env.example
 
   .template/
     objects.json
@@ -169,513 +332,228 @@ product_name/
     generator.json
     removal.md
 
-  v1/
+  hotel_admin/
     __init__.py
-
-    models/
+    api/
       __init__.py
-      user_model.py
-      org_model.py
-      role_model.py
-      membership_model.py
-      permission_model.py
-      <object>_model.py
-
-    operations/
-      __init__.py
-      user_ops.py
-      org_ops.py
-      role_ops.py
-      membership_ops.py
-      permission_ops.py
-      <object>_ops.py
-
-    routes/
-      __init__.py
-      auth.py
-      users.py
-      orgs.py
-      roles.py
-      permissions.py
-      <object>.py
-
-    dependencies/
-      __init__.py
-      auth.py
-      tenancy.py
-      rbac.py
-
-    security/
-      __init__.py
-      roles.py
-      permissions.py
-      role_permissions.py
-
-    schemas/
-      __init__.py
-      common.py
+      config.py
+      consts.py
+      database.py
+      main.py
+      middleware.py
+      security.py
+      base/
+        models/
+        operations/
+        routes/
+        exceptions/
 ```
 
----
+The root `main.py` re-exports the FastAPI app from the packaged app module:
 
-## Object System
+```python
+from hotel_admin.api.main import app
+```
 
-Objects are the main building blocks in RIFT.
+## Object Schema Reference
 
-An object can represent any backend resource such as a post, report, task, order, invoice, product, complaint, event, or document.
+Object fields support:
 
-Each object can define:
+- `name`: field name, normalized to snake_case
+- `type`: field type
+- `required`: whether the field is required
+- `default`: optional default value
+- `description`: optional description
+- `validations`: reserved for validation metadata
+- `create`: include in create schema
+- `update`: include in update schema
+- `response`: include in response schema
+- `separate_update`: generate a dedicated action endpoint
+- `literals`: optional literal values metadata
 
-- Name
-- Scope
-- Description
-- Fields
-- Field types
-- Required fields
-- Default values
-- Field descriptions
-- Validation rules
-- Field validators
-- Model validators
-- Create schema behavior
-- Update schema behavior
-- Response schema behavior
-- Custom actions
-- Ownership rules
-- Permission behavior
+Supported field types:
 
----
+- `string`
+- `integer`
+- `float`
+- `boolean`
+- `datetime`
+- `list[string]`
+- `literal`
 
-## Naming Rules
+Object-level keys:
 
-RIFT should normalize object names into consistent names across generated files.
+- `name`
+- `description`
+- `scope`: `tenant` or `system`
+- `owner_field`: defaults to `created_by`
+- `fields`
+- `actions`
 
-For each object, RIFT should generate:
+Example custom actions:
 
-- PascalCase class name
-- Snake case file name
-- Plural route name
-- Plural collection name
-- Upper snake case collection constant
-- Model class name
-- Create schema name
-- Update schema name
-- Response schema name
-- Operations class name
+```json
+{
+  "name": "Room",
+  "scope": "tenant",
+  "fields": [
+    {"name": "status", "type": "literal", "required": true, "separate_update": true}
+  ],
+  "actions": [
+    {"name": "mark_clean", "field": "status", "value": "clean"},
+    {"name": "mark_maintenance", "field": "status", "value": "maintenance"}
+  ]
+}
+```
 
-Field names must use snake_case.
-
----
-
-## Field System
-
-Each field should support:
-
-- Field name
-- Field type
-- Required flag
-- Default value
-- Description
-- Validation rules
-- Field validator flag
-- Create schema inclusion
-- Update schema inclusion
-- Response schema inclusion
-- Separate update method flag
-
-Supported field types for the MVP may include:
-
-- string
-- integer
-- float
-- boolean
-- datetime
-- list of strings
-- literal values
-
-Future versions may support:
-
-- date
-- dictionary
-- object IDs
-- email fields
-- URL fields
-- enum fields
-- nested objects
-- embedded schemas
-
----
-
-## Validation System
-
-RIFT should support common validation rules.
-
-For text fields:
-
-- Minimum length
-- Maximum length
-- Pattern matching
-- Whitespace stripping
-- Lowercase normalization
-- Uppercase normalization
-- Unique value checks
-
-For numeric fields:
-
-- Greater than
-- Greater than or equal
-- Less than
-- Less than or equal
-- Multiple of
-
-For list fields:
-
-- Minimum items
-- Maximum items
-- Unique items
-
-RIFT should also support model-level validators for cross-field validation.
-
----
-
-## Separate Update Methods
-
-Some fields should not be updated through a normal update endpoint.
-
-Examples include:
-
-- Status
-- Published state
-- Approval state
-- Rejection state
-- Verification state
-- Lock state
-- Assignment state
-- Priority state
-
-These fields often represent workflow transitions and should use dedicated endpoints or actions.
-
-For example, instead of updating a status field through a normal update request, RIFT can generate a dedicated action such as publish, approve, reject, archive, assign, verify, or lock.
-
-This allows stronger permission control and cleaner business logic.
-
----
-
-## Permission System
-
-RIFT uses model-wise permissions.
-
-The recommended permission format is:
+Generated routes include endpoints such as:
 
 ```text
-<object>:<action>:<scope>
+POST /rooms/{item_id}/set_status/
+POST /rooms/{item_id}/mark_clean/
+POST /rooms/{item_id}/mark_maintenance/
 ```
 
-Examples:
+## Updating Existing Objects
 
-- blog:create:any
-- blog:read:any
-- blog:read:own
-- blog:update:any
-- blog:update:own
-- blog:delete:any
-- blog:delete:own
-- blog:publish:any
-- blog:publish:own
+To update an existing object, apply a JSON definition with the same object name and regenerate:
 
-Permission scopes:
+```powershell
+rift object apply room-v2.json --project C:\projects\hotel_admin
+rift generate --project C:\projects\hotel_admin --force
+```
 
-- `any` means the user can act on any record in the current tenant.
-- `own` means the user can act only on records they own.
-- `system` means the permission applies at system level.
-
-RIFT should use generic ownership terminology such as `own` instead of object-specific terms like author, customer, or resident.
-
----
-
-## RBAC Model
-
-RIFT should use strict RBAC.
-
-Normal generated routes should check permissions, not role names.
-
-The access model should be:
-
-- A user has one global identity.
-- A user can belong to many organizations.
-- A membership connects a user to an organization.
-- A membership can have one or more roles.
-- Roles contain allowed and denied permissions.
-- Memberships may also contain allow or deny overrides.
-- Deny permissions should always override allow permissions.
-
-This makes the system flexible while keeping generated routes stable.
-
----
-
-## Ownership Rules
-
-RIFT should support owner-based access.
-
-For example, a user may be allowed to create records and then read, update, or delete only the records they own.
-
-Ownership should be enforced in the operation layer, not only in the route layer.
-
-If the user has an `own` permission scope, generated database queries should include the owner field filter.
-
-This prevents unauthorized access even if a user guesses another record ID.
-
----
-
-## Multi-Tenancy
-
-Multi-tenancy is a core requirement in RIFT.
-
-Every tenant-scoped object must include organization context.
-
-Every tenant-scoped operation must filter by organization ID.
-
-This is a strict security rule.
-
-A generated backend should include:
-
-- One system organization
-- Multiple tenant organizations
-- Global users
-- Organization memberships
-- Tenant-scoped roles
-- Tenant-scoped permissions
-- Tenant-scoped object records
-
-The system organization should control tenant organizations.
-
----
-
-## RBAC Cache
-
-Custom roles require permission resolution. To avoid repeated database calls on every request, RIFT should support RBAC caching.
-
-The MVP should support in-memory RBAC caching.
-
-The cache should store effective permissions per user per organization.
-
-Recommended cache behavior:
-
-- Lazy-load permissions when a user makes a request
-- Store effective permissions in memory
-- Use a TTL
-- Invalidate cache when roles change
-- Invalidate cache when memberships change
-- Add Redis support later for multi-server deployments
-
----
+RIFT replaces the source-of-truth object entry and regenerates the object model, operations, routes, permissions, and route registration.
 
 ## Generation Safety
 
-RIFT should be Git-safe.
-
-Recommended safety behavior:
-
-- Initialize Git during project creation
-- Create an initial commit after project generation
-- Check for uncommitted changes before regeneration
-- Stop generation if uncommitted changes exist
-- Allow forced generation only through an explicit flag
-- Support dry-run generation
-- Support generation diff preview
-- Clearly mark generated files
+RIFT generation is intentionally conservative:
 
-This reduces the chance of accidentally overwriting manual work.
-
----
-
-## Removal Policy
-
-RIFT should not automatically remove generated objects.
-
-Object removal can be risky because files may have been edited manually or extended with business logic.
-
-Instead of automated deletion, RIFT should provide a manual removal guide.
-
-The guide should explain which JSON entries, model files, operation files, route files, collection entries, permissions, and route registrations need to be reviewed or removed manually.
-
----
-
-## Doctor Command
-
-RIFT should include a doctor command to validate project health.
-
-The doctor command should check:
-
-- Required folders exist
-- Source-of-truth files exist
-- Object definitions are valid
-- Field names follow snake_case
-- Object names are unique
-- Collection names are unique
-- Permission keys are valid
-- Generated model files exist
-- Generated operation files exist
-- Generated route files exist
-- Routes are registered
-- Collection constants exist
-- Tenant-scoped objects enforce organization filtering
-- Ownership rules are applied
-- No duplicate route names exist
+- Generated projects are initialized as Git repositories when possible
+- `rift generate` checks for uncommitted changes
+- Use `--dry-run` to preview planned output
+- Use `rift diff` to inspect generated changes
+- Use `--force` only when you intentionally want to overwrite generated files
+- Object removal is manual through `rift removal-guide`
 
----
+## Runtime Notes
 
-## Initial Commands
+Generated projects use:
 
-The initial command set may include:
+- FastAPI
+- Uvicorn
+- async PyMongo
+- Pydantic v2
+- python-decouple
+- loguru
+- pwdlib with Argon2 support
+- PyJWT
+- Docker Compose with optional MongoDB
 
-- `rift init`
-- `rift object add`
-- `rift object update`
-- `rift generate`
-- `rift generate --dry-run`
-- `rift generate --force`
-- `rift diff`
-- `rift doctor`
-- `rift removal-guide`
+The generated app seeds the first admin/system organization from:
 
----
+```text
+ADMIN_EMAIL
+ADMIN_PASSWORD
+ADMIN_NAME
+```
 
-## Current Scope
+## Development
 
-The initial scope of RIFT is to generate a consistent backend foundation with strict architectural rules.
+Install development dependencies:
 
-The first version should focus on:
+```powershell
+uv sync --extra dev
+```
 
-- Project initialization
-- Git initialization
-- First commit creation
-- Fixed folder structure
-- FastAPI base application
-- MongoDB setup
-- Environment-based configuration
-- Collection name management
-- Source-of-truth JSON files
-- Object definition flow
-- Object-based model generation
-- Object-based operation generation
-- Object-based route generation
-- Route registration
-- Model-wise permission generation
-- Own versus any permission scope
-- Tenant-scoped object access
-- System organization concept
-- Global users
-- Organization memberships
-- Custom roles
-- Allow and deny permissions
-- RBAC dependency generation
-- In-memory RBAC cache
-- Doctor command
-- Dry-run generation
-- Manual removal guide
+Run tests:
 
-The main focus is repeatable backend generation, not runtime UI generation.
+```powershell
+python -m pytest
+```
 
----
+Run the CLI from source:
 
-## Out of Scope for MVP
+```powershell
+$env:PYTHONPATH = "src"
+python -m rift.cli --help
+```
 
-The following features should not be part of the first version:
+Build generated test projects manually:
 
-- Admin UI generation
-- Permission screen UI generation
-- Frontend generation
-- Redis cache backend
-- Plugin system
-- Complex migration engine
-- Advanced deployment automation
-- Multiple database support
-- GraphQL support
-- Background job generation
-- Advanced audit log system
-- File upload module
-- Email notification module
-- Test suite generation
-- OpenAPI customization
-- Multi-language SDK generation
+```powershell
+rift init Runtime Test --include-mongodb
+cd runtime_test
+uv sync
+uv run uvicorn main:app --host 127.0.0.1 --port 8000
+```
 
-These can be added later after the core generator is stable.
+## Publishing To PyPI
 
----
+The package is prepared to publish as `rift-backend` with the console command `rift`.
 
-## Future Scope
+Before publishing:
 
-Future versions of RIFT may include:
+1. Confirm the version in `pyproject.toml`.
+2. Confirm `README.md` renders correctly on PyPI.
+3. Confirm the package name is available or owned by you.
+4. Run tests.
+5. Build the package.
+6. Upload to TestPyPI first.
+7. Upload to PyPI.
 
-### Redis RBAC Cache
+Install build tools:
 
-Add Redis support for permission caching across multiple server instances.
+```powershell
+uv tool install build
+uv tool install twine
+```
 
-### Admin UI Generator
+Build:
 
-Generate a basic admin interface for managing users, organizations, roles, permissions, and generated objects.
+```powershell
+python -m build
+```
 
-### Permission Screen Generator
+Check package metadata:
 
-Generate a UI or API module for assigning allow and deny permissions to roles and memberships.
+```powershell
+twine check dist/*
+```
 
-### Audit Log Module
+Upload to TestPyPI:
 
-Generate audit logging for create, update, delete, publish, approve, reject, and other important actions.
+```powershell
+twine upload --repository testpypi dist/*
+```
 
-### File Upload Module
+Install from TestPyPI:
 
-Generate standard upload handling with ownership, tenant filtering, validation, and access control.
+```powershell
+pipx install --index-url https://test.pypi.org/simple/ --pip-args="--extra-index-url https://pypi.org/simple" rift-backend
+```
 
-### Notification Module
+Upload to PyPI:
 
-Generate email or in-app notification modules for workflow-based actions.
+```powershell
+twine upload dist/*
+```
 
-### Test Generation
+Install from PyPI:
 
-Generate unit and integration tests for generated models, operations, routes, and permission behavior.
+```powershell
+pipx install rift-backend
+```
 
-### Migration Helpers
+## Current Limitations
 
-Add helpers for managing schema changes, index creation, and MongoDB collection updates.
-
-### Plugin System
-
-Allow custom generator plugins while keeping the core architecture strict.
-
-### Custom Template Overrides
-
-Allow advanced users to override selected templates without changing the core generator.
-
-### Deployment Templates
-
-Generate Docker, Docker Compose, CI/CD, and deployment-related files.
-
-### Advanced Schema Support
-
-Support nested schemas, embedded objects, enums, object references, relation metadata, and advanced validation.
-
-### OpenAPI Enhancements
-
-Generate better tags, descriptions, examples, response schemas, and API documentation metadata.
-
----
-
-## Long-Term Vision
-
-RIFT should become a reliable backend generation framework for building secure, multi-tenant FastAPI applications quickly.
-
-The long-term goal is to make backend project setup repeatable, structured, and safe.
-
-RIFT should let developers focus on business objects and rules while the framework handles the repetitive backend architecture.
-
----
+- No frontend/admin UI generation
+- No Redis RBAC cache yet
+- No migration engine yet
+- No automatic generated-object deletion
+- No generated test suite inside generated projects yet
+- Interactive `rift object add` is basic; JSON apply is recommended for repeatable work
 
 ## Project Identity
 
 RIFT is a strict, JSON-driven, RBAC-first, multi-tenant FastAPI and MongoDB backend generator.
-
-Its most important rule is:
-
-Generated routes check permissions. Generated operations enforce tenancy and ownership.
