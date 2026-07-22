@@ -25,8 +25,8 @@ class TemplateRenderer:
     def __init__(self) -> None:
         self.env = Environment(
             loader=PackageLoader("rift", "templates"),
-            trim_blocks=True,
-            lstrip_blocks=True,
+            trim_blocks=False,
+            lstrip_blocks=False,
             undefined=StrictUndefined,
             keep_trailing_newline=True,
         )
@@ -91,3 +91,4 @@ class TemplateRenderer:
             else:
                 items.append(child)
         return items
+

@@ -11,6 +11,7 @@ from rift.core.generator import apply_object_file, generate_project, init_projec
 def test_init_generates_project_structure(tmp_path: Path):
     result = init_project("Hotel Admin", tmp_path, force=False)
     root = result.target_dir
+    assert (root / "main.py").exists()
     assert (root / "hotel_admin" / "api" / "main.py").exists()
     assert (root / "hotel_admin" / "api" / "database.py").exists()
     assert (root / "Dockerfile").exists()
@@ -21,10 +22,18 @@ def test_init_generates_project_structure(tmp_path: Path):
     dockerfile = (root / "Dockerfile").read_text(encoding="utf-8")
     backend_pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
     compose = (root / "docker-compose.yml").read_text(encoding="utf-8")
+    root_main = (root / "main.py").read_text(encoding="utf-8")
+    assert "from hotel_admin.api.main import app" in root_main
     assert "from pymongo import AsyncMongoClient" in database
     assert "motor" not in database.lower()
     assert "uv sync --no-dev" in dockerfile
+    assert "uvicorn" in dockerfile
+    assert "main:app" in dockerfile
+    assert "UV_PROJECT_ENVIRONMENT=/opt/venv" in dockerfile
+    assert (root / ".dockerignore").exists()
     assert '"pymongo>=4.11.0"' in backend_pyproject
+    assert '"pwdlib[argon2]>=0.2.1"' in backend_pyproject
+    assert "required: false" in compose
     assert "image: mongo" not in compose
 
 
@@ -34,7 +43,7 @@ def test_init_can_include_local_mongodb_compose_service(tmp_path: Path):
     generator = json.loads((root / ".template" / "generator.json").read_text(encoding="utf-8"))
     assert generator["docker"]["include_mongodb"] is True
     assert "image: mongo:7" in compose
-    assert '"27017:27017"' in compose
+    assert '"${MONGO_PORT:-27017}:27017"' in compose
     assert "mongo_data:/data/db" in compose
     assert "MONGO_URI: mongodb://mongo:27017" in compose
     assert "depends_on:" in compose
@@ -46,6 +55,7 @@ def test_init_without_local_mongodb_omits_compose_service(tmp_path: Path):
     compose = (root / "docker-compose.yml").read_text(encoding="utf-8")
     generator = json.loads((root / ".template" / "generator.json").read_text(encoding="utf-8"))
     assert generator["docker"]["include_mongodb"] is False
+    assert "required: false" in compose
     assert "image: mongo" not in compose
     assert "mongo_data" not in compose
     assert "mongodb://mongo:27017" not in compose
@@ -89,6 +99,10 @@ def test_apply_object_generates_object_files_and_catalogs(tmp_path: Path):
     assert (root / "hotel_admin" / "api" / "base" / "routes" / "room.py").exists()
     ops = (root / "hotel_admin" / "api" / "base" / "operations" / "room_ops.py").read_text(encoding="utf-8")
     route = (root / "hotel_admin" / "api" / "base" / "routes" / "room.py").read_text(encoding="utf-8")
+    api_main = (root / "hotel_admin" / "api" / "main.py").read_text(encoding="utf-8")
+    assert "room," in api_main
+    assert "roomfrom" not in api_main
+    assert "app.include_router(room.router)" in api_main
     assert "org_id" in ops
     assert "created_by" in ops
     assert "require_any_or_own" in route
@@ -118,3 +132,13 @@ def test_doctor_passes_after_generation(tmp_path: Path):
     generate_project(root, force=True)
     report = run_doctor(root)
     assert report.ok, "\n".join(report.messages)
+
+
+
+
+
+
+
+
+
+
